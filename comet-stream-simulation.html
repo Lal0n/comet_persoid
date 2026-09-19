@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>היווצרות מטח הפרסאידים — סימולציית שביט Swift-Tuttle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #070912;
+    --bg-panel: #0e1220;
+    --line: #1d2438;
+    --ink: #e9ecf6;
+    --ink-dim: #8b93b0;
+    --sun: #ffb44d;
+    --sun-glow: #ff8a3d;
+    --comet-hot: #eaf3ff;
+    --comet-cold: #6a7fb8;
+    --accent: #ff8a3d;
+    --accent-soft: rgba(255,138,61,0.14);
+    --track: #1a2036;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; height:100%;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Heebo', system-ui, Arial, sans-serif;
+  }
+  .app{
+    display:grid;
+    grid-template-columns: 1fr 320px;
+    height:100vh;
+    min-height:560px;
+  }
+  @media (max-width: 860px){
+    .app{ grid-template-columns: 1fr; grid-template-rows: 58vh auto; height:auto; min-height:100vh; }
+  }
+  .stage{
+    position:relative;
+    overflow:hidden;
+    background: radial-gradient(ellipse at 50% 45%, #0b0f1e 0%, #05060c 70%);
+  }
+  canvas{ display:block; width:100%; height:100%; }
+
+  .hud{
+    position:absolute; top:16px; right:16px; left:16px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none;
+  }
+  .title-block h1{
+    font-size: 17px; font-weight:700; margin:0 0 2px;
+    letter-spacing:0.2px;
+  }
+  .title-block p{
+    margin:0; font-size:12.5px; color:var(--ink-dim);
+  }
+  .phase-tag{
+    background: rgba(14,18,32,0.75);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:6px 12px;
+    font-size:12.5px;
+    color:var(--ink-dim);
+    backdrop-filter: blur(4px);
+  }
+  .phase-tag b{ color:var(--accent); font-weight:700; }
+
+  .readout{
+    position:absolute; bottom:16px; right:16px;
+    background: rgba(14,18,32,0.82);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 16px;
+    min-width:250px;
+    max-width:280px;
+    backdrop-filter: blur(4px);
+  }
+  .readout .row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:5px 0;
+    border-bottom:1px solid var(--line);
+    font-size:13px;
+  }
+  .readout .row:last-child{ border-bottom:none; }
+  .readout .row span:first-child{ color:var(--ink-dim); }
+  .readout .row span:last-child{ font-weight:700; direction:ltr; unicode-bidi:isolate; }
+  .bar{
+    height:6px; border-radius:4px; background:var(--track);
+    margin-top:6px; overflow:hidden;
+  }
+  .bar > i{
+    display:block; height:100%; border-radius:4px;
+    background: linear-gradient(90deg, var(--sun-glow), var(--sun));
+    width:0%; transition: width .15s linear;
+  }
+
+  .panel{
+    background:var(--bg-panel);
+    border-inline-start:1px solid var(--line);
+    padding:22px 20px 20px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+  }
+  .panel > *{ width:100%; max-width:270px; }
+  .panel h2{
+    font-size:13px; text-transform:none; letter-spacing:0.3px;
+    color:var(--ink-dim); margin: 0 0 14px; font-weight:500;
+  }
+  .ctrl{ margin-bottom:20px; }
+  .ctrl label{
+    display:flex; justify-content:space-between;
+    font-size:13.5px; margin-bottom:8px; font-weight:500;
+  }
+  .ctrl label em{ font-style:normal; color:var(--accent); font-weight:700; }
+  input[type=range]{
+    width:100%; -webkit-appearance:none; appearance:none;
+    height:4px; border-radius:3px; background:var(--track);
+    outline:none;
+  }
+  input[type=range]:disabled{ opacity:0.35; }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:16px; height:16px; border-radius:50%;
+    background:var(--accent); cursor:pointer;
+    border:2px solid #0e1220;
+    box-shadow:0 0 0 1px var(--accent);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%;
+    background:var(--accent); cursor:pointer; border:2px solid #0e1220;
+  }
+  .btnrow{ display:flex; gap:8px; margin-bottom:18px; }
+  button{
+    font-family:inherit; font-size:13.5px; font-weight:700;
+    border-radius:10px; border:1px solid var(--line);
+    background:#141a2c; color:var(--ink);
+    padding:10px 12px; cursor:pointer;
+    transition: background .15s, border-color .15s;
+    flex:1;
+  }
+  button:hover{ border-color:var(--accent); }
+  button.primary{
+    background: linear-gradient(180deg, #ff9a56, var(--accent));
+    color:#1a0e05; border:none;
+  }
+  button.primary:hover{ filter:brightness(1.06); }
+  button.toggle-on{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+
+  .legend{
+    display:flex; flex-direction:column; gap:7px;
+    font-size:12.5px; color:var(--ink-dim);
+    padding-top:10px; margin-top:8px; border-top:1px solid var(--line);
+  }
+  .legend div{ display:flex; align-items:center; gap:8px; }
+  .dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .dot-ring{
+    width:9px; height:9px; border-radius:50%; flex-shrink:0;
+    border:1.5px solid #ff5d5d; box-sizing:border-box;
+  }
+
+  .notes-toggle{ margin-top:6px; }
+  .notes-toggle summary{
+    cursor:pointer; font-size:12.5px; color:var(--ink-dim);
+    padding:8px 2px; list-style:none;
+  }
+  .notes-toggle summary::-webkit-details-marker{ display:none; }
+  .notes-toggle summary:hover{ color:var(--accent); }
+  .note{
+    font-size:11.5px; line-height:1.6; color:var(--ink-dim);
+    background:#0a0d18; border:1px solid var(--line); border-radius:10px;
+    padding:10px 12px; margin-top:6px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c"></canvas>
+    <div class="hud">
+      <div class="title-block">
+        <h1>109P/Swift-Tuttle — היווצרות מטח הפרסאידים</h1>
+        <p>מסלול השביט חוצה את מסלול כדור הארץ — כאן נוצר המטח שרואים כל אוגוסט</p>
+      </div>
+      <div class="phase-tag" id="phaseTag">טוען…</div>
+    </div>
+    <div class="readout">
+      <div class="row"><span>מרחק מהשמש</span><span id="rDist">—</span></div>
+      <div class="row"><span>טמפרטורת פני השביט</span><span id="rTemp">—</span></div>
+      <div class="row"><span>שטף חומר נפלט</span><span id="rFlux">—</span></div>
+      <div class="bar"><i id="fluxBar"></i></div>
+      <div class="legend">
+        <div><span class="dot" style="background:#ffb44d;"></span> השמש</div>
+        <div><span class="dot" style="background:#eaf3ff;"></span> השביט (109P/Swift-Tuttle)</div>
+        <div><span class="dot" style="background:#7ecbff;"></span> כדור הארץ</div>
+        <div><span class="dot" style="background:#c9873f;"></span> חומר שנפלט (שובל המטח)</div>
+        <div><span class="dot-ring"></span> נקודת חיתוך עם מסלול כדוה"א</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>שליטה בסימולציה</h2>
+
+    <div class="btnrow">
+      <button class="primary" id="playBtn">▶ הפעל אנימציה</button>
+    </div>
+    <div class="btnrow">
+      <button id="modeBtn">מצב: הצטברות הדרגתית</button>
+    </div>
+    <div class="btnrow">
+      <button id="resetBtn">איפוס תצוגה</button>
+    </div>
+
+    <div class="ctrl">
+      <label>מיקום השביט במסלול <em id="posVal">180°</em></label>
+      <input type="range" id="posSlider" min="0" max="360" value="180" step="1">
+    </div>
+
+    <div class="ctrl">
+      <label>הטיית המערכת <em id="tiltVal">35°</em></label>
+      <input type="range" id="tiltSlider" min="0" max="89" value="35" step="1">
+    </div>
+
+    <div class="ctrl">
+      <label>זום <em id="zoomVal">אוטומטי</em></label>
+      <input type="range" id="zoomSlider" min="-100" max="100" value="0" step="1" disabled>
+    </div>
+    <div class="btnrow">
+      <button id="zoomModeBtn" class="toggle-on">מצב זום: אוטומטי</button>
+    </div>
+
+    <details class="notes-toggle">
+      <summary>הערות (לחיצה לפתיחה)</summary>
+      <div class="note" id="scaleNote">
+        קטרי כוכבי הלכת מוצגים ביחס אמיתי אחד לשני (השמש הוקטנה כדי לא לכסות את המערכת). רדיוסי המסלולים אמיתיים, פרט לאפהליון השביט שקוצר ל-10 י״א (בפועל כ-51 י״א) כדי לשמור את כל כוכבי הלכת בתצוגה אחת. מוצגים כוכבי הלכת עד שבתאי בלבד. מסלול השביט מוצג בהטיה האמיתית שלו ביחס למישור המלקה (כ-113° — מסלול נסיגתי), בעוד שמסלולי כוכבי הלכת מוצגים כשטוחים (הטייתם האמיתית קטנה מאוד). הגדילו את מחוון ההטיה כדי לראות את ההבדל.
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  // ---------- Data ----------
+  const AU = 1; // unit
+  const planets = [
+    {name:'מרקורי', a:0.39, T:0.241, d:4879,  color:'#a89a8a'},
+    {name:'נוגה',   a:0.72, T:0.615, d:12104, color:'#e8cf9a'},
+    {name:'כדור הארץ', a:1.00, T:1.000, d:12742, color:'#7ecbff', isEarth:true},
+    {name:'מאדים',  a:1.52, T:1.881, d:6779,  color:'#d97757'},
+    {name:'צדק',    a:5.20, T:11.86, d:139820,color:'#e0c8a0', fixedPx:11},
+    {name:'שבתאי',  a:9.58, T:29.46, d:116460,color:'#e8dcb0', fixedPx:9.5, hasRings:true},
+  ];
+  const EARTH_D = 12742;
+  const PLANET_PX_PER_EARTH = 5.6;
+
+  // Comet: real perihelion, artistically capped aphelion (see note in UI)
+  const comet = {
+    q: 0.96,      // AU, real perihelion of 109P/Swift-Tuttle
+    Qcap: 10.0,   // AU, capped aphelion for display (real ~51 AU)
+  };
+  comet.a = (comet.q + comet.Qcap) / 2;
+  // Real orbital orientation of 109P/Swift-Tuttle relative to the ecliptic (where the planets lie):
+  const COMET_INCL = 113.454 * Math.PI/180; // inclination (>90° = retrograde orbit)
+  const COMET_NODE = 139.379 * Math.PI/180; // longitude of ascending node
+  const COMET_ARGP = 152.980 * Math.PI/180; // argument of perihelion
+  function cometEclipticXYZ(r, nu){
+    const u = COMET_ARGP + nu;
+    const cosO=Math.cos(COMET_NODE), sinO=Math.sin(COMET_NODE);
+    const cosu=Math.cos(u), sinu=Math.sin(u);
+    const cosi=Math.cos(COMET_INCL), sini=Math.sin(COMET_INCL);
+    return {
+      x: r*(cosO*cosu - sinO*sinu*cosi),
+      y: r*(sinO*cosu + cosO*sinu*cosi),
+      z: r*sinu*sini
+    };
+  }
+  comet.e = (comet.Qcap - comet.q) / (comet.Qcap + comet.q);
+  comet.T = Math.pow(comet.a, 1.5); // years, Kepler III (simplified units)
+
+  const SIM_YEARS_PER_SEC = 0.34; // animation speed
+
+  // ---------- State ----------
+  let t = 0; // simulated years elapsed, set to aphelion at init (see bottom of file)
+  let playing = false;
+  let manualPos = false; // user is scrubbing the position slider
+  let mode = 'gradual'; // 'gradual' | 'full'
+  let particles = [];   // {ang, r, age}
+  let lastPassCount = -1;
+  let manualZoom = null; // null = auto camera
+  let currentSunXFrac = 2/3; // eases toward center as tier-3 kicks in
+  let autoTierT = 0;
+  let currentViewAU = 9.58;
+  const DEFAULT_VIEW_AU = 9.58; // Saturn's orbit radius — its orbit now spans 90% of screen width
+  const JUPITER_CROSS_AU = 5.20;  // Jupiter's orbit radius — tier-2 trigger & target
+  const TIER2_TRANS = 0.6;        // smoothing width around the tier-2 trigger
+  const COMET_TIER3_AU = 2.3;     // comet distance from Sun — tier-3 trigger & target
+  const TIER3_TRANS = 0.3;        // smoothing width around the tier-3 trigger
+  const LEFT_MARGIN_FRAC = 0.035; // small gap between the comet's aphelion and the stage's left edge
+  const SUN_X_FRAC = (comet.Qcap * (0.45/DEFAULT_VIEW_AU)) + LEFT_MARGIN_FRAC; // default: keeps the comet's full orbit just inside the left edge
+  let tiltDeg = 35;
+
+  const posSlider = document.getElementById('posSlider');
+  const tiltSlider = document.getElementById('tiltSlider');
+  const zoomSlider = document.getElementById('zoomSlider');
+  const posVal = document.getElementById('posVal');
+  const tiltVal = document.getElementById('tiltVal');
+  const zoomVal = document.getElementById('zoomVal');
+  const playBtn = document.getElementById('playBtn');
+  const modeBtn = document.getElementById('modeBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const phaseTag = document.getElementById('phaseTag');
+  const rDist = document.getElementById('rDist');
+  const rTemp = document.getElementById('rTemp');
+  const rFlux = document.getElementById('rFlux');
+  const fluxBar = document.getElementById('fluxBar');
+
+  // ---------- Kepler solver (comet) ----------
+  function solveKepler(M, e){
+    let E = M;
+    for(let i=0;i<8;i++){
+      E = E - (E - e*Math.sin(E) - M) / (1 - e*Math.cos(E));
+    }
+    return E;
+  }
+  function cometPosFromT(tYears){
+    const M = (2*Math.PI * ((tYears % comet.T + comet.T) % comet.T) / comet.T);
+    const E = solveKepler(M, comet.e);
+    const r = comet.a * (1 - comet.e*Math.cos(E));
+    const nu = 2*Math.atan2(Math.sqrt(1+comet.e)*Math.sin(E/2), Math.sqrt(1-comet.e)*Math.cos(E/2));
+    return {r, ang: nu, M};
+  }
+  function angleFromT_planet(tYears, T){
+    return (2*Math.PI * (tYears % T) / T);
+  }
+
+  // physics-flavored readouts
+  function temperatureK(r){ return 278 / Math.sqrt(r); }
+  function fluxPct(r){
+    const v = 100 * Math.exp(-(r - comet.q)/1.3);
+    return Math.max(0, Math.min(100, v));
+  }
+
+  // ---------- Canvas sizing ----------
+  let W=0,H=0,DPR=1;
+  function resize(){
+    const rect = canvas.parentElement.getBoundingClientRect();
+    DPR = Math.min(2, window.devicePixelRatio||1);
+    W = rect.width; H = rect.height;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+
+  // starfield
+  let stars = [];
+  function makeStars(){
+    stars = [];
+    const n = 160;
+    for(let i=0;i<n;i++){
+      stars.push({x:Math.random(), y:Math.random(), r:Math.random()*1.3+0.2, a:Math.random()*0.6+0.3});
+    }
+  }
+  makeStars();
+
+  // ---------- Debris logic ----------
+  function resetParticles(){
+    particles = [];
+    lastPassCount = -1;
+    if(mode === 'full'){
+      const N = 700;
+      for(let i=0;i<N;i++){
+        // density weighted toward perihelion via rejection-ish sampling on true anomaly
+        let nu, r;
+        let tries=0;
+        do {
+          nu = Math.random()*2*Math.PI;
+          r = comet.a*(1-comet.e*comet.e)/(1+comet.e*Math.cos(nu));
+          tries++;
+        } while(Math.random() > (fluxPct(r)/100)*0.85+0.06 && tries<10);
+        const jitter = (Math.random()-0.5)*0.16;
+        particles.push({ang: nu, r: r*(1+jitter*0.05), jr: (Math.random()-0.5)*0.25});
+      }
+    }
+  }
+
+  function updateGradualDebris(prevT, newT){
+    if(mode !== 'gradual') return;
+    const passCount = Math.floor(newT / comet.T);
+    // deposit continuously while flux is meaningful, sampled a few times per frame-step
+    const steps = 6;
+    for(let s=0;s<steps;s++){
+      const frac = s/steps;
+      const tt = prevT + (newT-prevT)*frac;
+      const pos = cometPosFromT(tt);
+      const fl = fluxPct(pos.r);
+      if(fl > 4 && Math.random() < fl/650){
+        const jitter = (Math.random()-0.5)*0.35; // orbital drift/spread over time
+        particles.push({ang: pos.ang + jitter*0.15, r: pos.r, jr:(Math.random()-0.5)*0.22});
+      }
+    }
+    if(particles.length > 2600) particles.splice(0, particles.length-2600);
+  }
+
+  // ---------- Drawing ----------
+  function projectXYZ(x, y, z, viewAU, tiltRad){
+    // tilt: rotate the view from face-on (0°) toward edge-on (90°) relative to the ecliptic (z=0 plane)
+    const yT = y*Math.cos(tiltRad) - z*Math.sin(tiltRad);
+    const scale = W*0.45 / viewAU;
+    return {
+      px: W*currentSunXFrac + x*scale,
+      py: H/2 + yT*scale,
+      scale
+    };
+  }
+  function project(rAU, ang, viewAU, tiltRad){
+    // flat (ecliptic-plane) bodies: the planets, and orbit-path circles
+    return projectXYZ(rAU*Math.cos(ang), rAU*Math.sin(ang), 0, viewAU, tiltRad);
+  }
+  function projectComet(r, nu, viewAU, tiltRad){
+    const p = cometEclipticXYZ(r, nu);
+    return projectXYZ(p.x, p.y, p.z, viewAU, tiltRad);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // starfield
+    ctx.save();
+    for(const s of stars){
+      ctx.globalAlpha = s.a;
+      ctx.fillStyle = '#dfe6ff';
+      ctx.beginPath();
+      ctx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    const tiltRad = tiltDeg*Math.PI/180;
+    const viewAU = currentViewAU;
+
+    // orbit paths - planets (circles)
+    ctx.lineWidth = 1;
+    for(const p of planets){
+      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+      ctx.beginPath();
+      const steps=90;
+      for(let i=0;i<=steps;i++){
+        const a = i/steps*2*Math.PI;
+        const pr = project(p.a, a, viewAU, tiltRad);
+        if(i===0) ctx.moveTo(pr.px, pr.py); else ctx.lineTo(pr.px, pr.py);
+      }
+      ctx.stroke();
+    }
+
+    // comet orbit ellipse
+    ctx.strokeStyle = 'rgba(255,178,120,0.30)';
+    ctx.beginPath();
+    const steps=140;
+    for(let i=0;i<=steps;i++){
+      const nu = i/steps*2*Math.PI;
+      const r = comet.a*(1-comet.e*comet.e)/(1+comet.e*Math.cos(nu));
+      const pr = projectComet(r, nu, viewAU, tiltRad);
+      if(i===0) ctx.moveTo(pr.px, pr.py); else ctx.lineTo(pr.px, pr.py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    // Earth-crossing marker: the real ascending node — where the comet's tilted
+    // orbit actually pierces the ecliptic near Earth's distance (~1 AU), not the perihelion itself
+    {
+      const nuNode = Math.PI - COMET_ARGP; // z=0 solution closest to the Sun
+      const rNode = comet.a*(1-comet.e*comet.e)/(1+comet.e*Math.cos(nuNode));
+      const pr = projectComet(rNode, nuNode, viewAU, tiltRad);
+      ctx.strokeStyle = 'rgba(255,93,93,0.75)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(pr.px, pr.py, 9, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    // debris particles
+    for(const pt of particles){
+      const rr = pt.r + (pt.jr||0);
+      const pr = projectComet(rr, pt.ang, viewAU, tiltRad);
+      ctx.fillStyle = 'rgba(201,135,63,0.55)';
+      ctx.beginPath();
+      ctx.arc(pr.px, pr.py, 1.15, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // Sun
+    {
+      const pr = project(0,0,viewAU, tiltRad);
+      const R = 13;
+      const grad = ctx.createRadialGradient(pr.px,pr.py,0, pr.px,pr.py, R*3.4);
+      grad.addColorStop(0,'rgba(255,180,77,0.9)');
+      grad.addColorStop(0.35,'rgba(255,138,61,0.35)');
+      grad.addColorStop(1,'rgba(255,138,61,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(pr.px,pr.py,R*3.4,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffd28a';
+      ctx.beginPath(); ctx.arc(pr.px,pr.py,R,0,Math.PI*2); ctx.fill();
+    }
+
+    // planets
+    for(const p of planets){
+      const ang = angleFromT_planet(t, p.T);
+      const pr = project(p.a, ang, viewAU, tiltRad);
+      const rad = Math.max(1.4, PLANET_PX_PER_EARTH * (p.d/EARTH_D));
+      const cappedRad = p.fixedPx !== undefined ? p.fixedPx : Math.min(rad, 30);
+
+      if(p.hasRings){
+        const rx = cappedRad*2.3, ry = cappedRad*0.62, rot = -0.36;
+        ctx.strokeStyle = 'rgba(232,220,176,0.55)';
+        ctx.lineWidth = Math.max(1.2, cappedRad*0.16);
+        // back arc (behind the planet)
+        ctx.beginPath();
+        ctx.ellipse(pr.px, pr.py, rx, ry, rot, Math.PI*0.08, Math.PI*0.92);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(pr.px, pr.py, cappedRad, 0, Math.PI*2);
+      ctx.fill();
+
+      if(p.hasRings){
+        const rx = cappedRad*2.3, ry = cappedRad*0.62, rot = -0.36;
+        ctx.strokeStyle = 'rgba(232,220,176,0.85)';
+        ctx.lineWidth = Math.max(1.2, cappedRad*0.16);
+        // front arc (in front of the planet)
+        ctx.beginPath();
+        ctx.ellipse(pr.px, pr.py, rx, ry, rot, Math.PI*1.08, Math.PI*1.92);
+        ctx.stroke();
+      }
+
+      if(cappedRad>3){
+        ctx.fillStyle='rgba(255,255,255,0.55)';
+        ctx.font='10px Heebo';
+        ctx.textAlign='center';
+        const labelY = p.hasRings ? pr.py - cappedRad*2.3 - 8 : pr.py - cappedRad - 6;
+        ctx.fillText(p.name, pr.px, labelY);
+      }
+    }
+
+    // comet
+    {
+      const pos = cometPosFromT(t);
+      const pr = projectComet(pos.r, pos.ang, viewAU, tiltRad);
+      const fl = fluxPct(pos.r);
+
+      // tail: points away from sun
+      if(fl > 2){
+        const dirx = pr.px - project(0,0,viewAU,tiltRad).px;
+        const diry = pr.py - project(0,0,viewAU,tiltRad).py;
+        const len = Math.hypot(dirx,diry) || 1;
+        const ux=dirx/len, uy=diry/len;
+        const tailLen = 18 + fl*1.1;
+        const grad = ctx.createLinearGradient(pr.px,pr.py, pr.px+ux*tailLen, pr.py+uy*tailLen);
+        grad.addColorStop(0, 'rgba(234,243,255,'+Math.min(0.85,fl/90)+')');
+        grad.addColorStop(1, 'rgba(120,150,220,0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 4;
+        ctx.lineCap='round';
+        ctx.beginPath();
+        ctx.moveTo(pr.px,pr.py);
+        ctx.lineTo(pr.px+ux*tailLen, pr.py+uy*tailLen);
+        ctx.stroke();
+      }
+      // coma glow
+      const glowR = 6 + fl*0.09;
+      const g = ctx.createRadialGradient(pr.px,pr.py,0, pr.px,pr.py, glowR);
+      g.addColorStop(0,'rgba(234,243,255,0.9)');
+      g.addColorStop(1,'rgba(234,243,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(pr.px,pr.py,glowR,0,Math.PI*2); ctx.fill();
+      // nucleus
+      ctx.fillStyle = '#eaf3ff';
+      ctx.beginPath(); ctx.arc(pr.px,pr.py,3.2,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  // ---------- Info panel ----------
+  function updateReadouts(pos){
+    rDist.textContent = pos.r.toFixed(2)+' י״א';
+    const tempK = temperatureK(pos.r);
+    rTemp.textContent = Math.round(tempK-273.15)+'°C';
+    const fl = fluxPct(pos.r);
+    rFlux.textContent = fl.toFixed(1)+'%';
+    fluxBar.style.width = fl+'%';
+
+    let phase;
+    if(pos.r < comet.q*1.3) phase = 'קרוב לפריהליון — קרח מתאדה בעוצמה';
+    else if(pos.r > comet.Qcap*0.85) phase = 'קרוב לאפהליון המוצג — כמעט קפוא ורדום';
+    else if(Math.sin(pos.ang) < 0) phase = 'מתקרב לשמש';
+    else phase = 'מתרחק מהשמש';
+    phaseTag.innerHTML = '<b>שלב: </b>'+phase;
+  }
+
+  // ---------- Camera ----------
+  function tierFactors(cometR){
+    const g2 = Math.max(0, Math.min(1, (JUPITER_CROSS_AU - cometR)/TIER2_TRANS));
+    const g3 = Math.max(0, Math.min(1, (COMET_TIER3_AU - cometR)/TIER3_TRANS));
+    return {g2, g3};
+  }
+  function updateCamera(dt, cometR){
+    const {g2, g3} = tierFactors(cometR);
+    if(manualZoom !== null){
+      currentViewAU = manualZoom;
+    } else {
+      let targetView = DEFAULT_VIEW_AU + (JUPITER_CROSS_AU-DEFAULT_VIEW_AU)*g2;
+      targetView = targetView + (COMET_TIER3_AU-targetView)*g3;
+      currentViewAU += (targetView-currentViewAU)*Math.min(1, dt*2.5);
+    }
+    const targetSunFrac = SUN_X_FRAC + (0.5-SUN_X_FRAC)*g3; // sun re-centers as tier 3 kicks in
+    currentSunXFrac += (targetSunFrac-currentSunXFrac)*Math.min(1, dt*2.5);
+  }
+
+  // ---------- Main loop ----------
+  let lastTime = null;
+  function frame(now){
+    if(lastTime===null) lastTime = now;
+    const dtReal = Math.min(0.06, (now-lastTime)/1000);
+    lastTime = now;
+
+    if(playing && !manualPos){
+      // tier 2 (comet crosses Jupiter's orbit) => up to 25% slower;
+      // tier 3 (comet within 2.3 AU of the Sun) => exactly a quarter of base speed
+      const {g2, g3} = tierFactors(cometPosFromT(t).r);
+      const tier2Speed = 1 - 0.25*g2;
+      const speedFactor = tier2Speed*(1-g3) + 0.25*g3;
+      const prevT = t;
+      t += dtReal * SIM_YEARS_PER_SEC * speedFactor;
+      updateGradualDebris(prevT, t);
+      const passCount = Math.floor(t/comet.T);
+      // sync slider display
+      const pos0 = cometPosFromT(t);
+      posSlider.value = Math.round((pos0.M*180/Math.PI));
+      posVal.textContent = Math.round(pos0.M*180/Math.PI)+'°';
+    }
+    const pos = cometPosFromT(t);
+    updateCamera(dtReal, pos.r);
+
+    updateReadouts(pos);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- Controls wiring ----------
+  posSlider.addEventListener('input', ()=>{
+    manualPos = true;
+    playing = false;
+    playBtn.textContent = '▶ הפעל אנימציה';
+    const deg = parseFloat(posSlider.value);
+    posVal.textContent = Math.round(deg)+'°';
+    const M = deg*Math.PI/180;
+    // invert Kepler roughly: find t such that M(t) matches (M is linear in t for mean anomaly)
+    t = (deg/360)*comet.T;
+  });
+  posSlider.addEventListener('change', ()=>{ manualPos = false; });
+
+  tiltSlider.addEventListener('input', ()=>{
+    tiltDeg = parseFloat(tiltSlider.value);
+    tiltVal.textContent = Math.round(tiltDeg)+'°';
+  });
+
+  const zoomModeBtn = document.getElementById('zoomModeBtn');
+  let autoZoomMode = true;
+
+  function sliderToViewAU(v){
+    const t01 = (v+100)/200; // 0..1
+    const minAU=2.0, maxAU=11;
+    return minAU*Math.pow(maxAU/minAU, 1-t01);
+  }
+
+  zoomSlider.addEventListener('input', ()=>{
+    if(autoZoomMode) return; // slider is inert while in auto mode
+    const v = parseFloat(zoomSlider.value);
+    const viewAU = sliderToViewAU(v);
+    manualZoom = viewAU;
+    zoomVal.textContent = viewAU.toFixed(1)+' י״א';
+  });
+
+  zoomModeBtn.addEventListener('click', ()=>{
+    autoZoomMode = !autoZoomMode;
+    zoomSlider.disabled = autoZoomMode;
+    zoomModeBtn.classList.toggle('toggle-on', autoZoomMode);
+    zoomModeBtn.textContent = 'מצב זום: ' + (autoZoomMode ? 'אוטומטי' : 'ידני');
+    if(autoZoomMode){
+      manualZoom = null;
+      zoomVal.textContent = 'אוטומטי';
+    } else {
+      const viewAU = sliderToViewAU(parseFloat(zoomSlider.value));
+      manualZoom = viewAU;
+      zoomVal.textContent = viewAU.toFixed(1)+' י״א';
+    }
+  });
+
+  playBtn.addEventListener('click', ()=>{
+    playing = !playing;
+    manualPos = false;
+    playBtn.textContent = playing ? '⏸ עצור' : '▶ הפעל אנימציה';
+  });
+
+  modeBtn.addEventListener('click', ()=>{
+    mode = (mode==='gradual') ? 'full' : 'gradual';
+    modeBtn.textContent = 'מצב: '+(mode==='gradual' ? 'הצטברות הדרגתית' : 'מסלול מלא מההתחלה');
+    modeBtn.classList.toggle('toggle-on', mode==='full');
+    resetParticles();
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    t = comet.T*(200/360); playing=false; manualPos=false;
+    playBtn.textContent = '▶ הפעל אנימציה';
+    posSlider.value = 200; posVal.textContent='200°';
+    manualZoom = null; zoomSlider.value = 0; zoomVal.textContent='אוטומטי';
+    autoZoomMode = true; zoomSlider.disabled = true;
+    zoomModeBtn.classList.add('toggle-on'); zoomModeBtn.textContent = 'מצב זום: אוטומטי';
+    autoTierT = 0; currentViewAU = DEFAULT_VIEW_AU; currentSunXFrac = SUN_X_FRAC;
+    resetParticles();
+  });
+
+  // ---------- Init ----------
+  t = comet.T*(200/360); // start a little past aphelion (M=200°), heading back toward the Sun
+  posSlider.value = 200; posVal.textContent = '200°';
+  resize();
+  resetParticles();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
