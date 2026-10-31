@@ -33,7 +33,7 @@
 <body>
 <main>
   <h1>קבצי הנתונים</h1>
-  <p class="lead">לחצו על "הצג תוכן" כדי לראות את הקובץ בדפדפן. לחצו על "העתק כתובת" והדביקו במקום המתאים ב-Colab.</p>
+  <p class="lead">לחצו על "הצג תוכן" כדי לראות את הקובץ בדפדפן. לחצו על "העתק כתובת" והדביקו במקום המתאים ב-Colab. לחצו על הורד קובץ גולמי להורדת הקובץ למחשב.</p>
 
   <div id="files"></div>
 </main>
@@ -41,11 +41,6 @@
 <script>
   // רשימת הקבצים. הנתיבים יחסיים לאתר, כך שהדף עובד בכל כתובת שבה הוא מפורסם.
   const FILES = [
-    {
-      name: "Geminids_NOA38_with_elapsed.csv",
-      title: "<strong>מטר הג'מיניידים</strong> - תצפית NOA38.",
-      desc: "כל מטאור עם שעה, בהירות וזמן מתחילת התצפית בדקות (elapsed_min)."
-    },
     {
       name: "observer_omri_katz_night1213.csv",
       title: "מטר הפרסואידים. תצפית חובבים - עומרי כץ.",
@@ -122,18 +117,16 @@
       const card = document.createElement("section");
       card.className = "file";
       card.innerHTML = `
-        <h2></h2>
         <div class="meta"></div>
         <div class="url"></div>
         <div class="actions">
           <button data-act="show">הצג תוכן</button>
           <button class="secondary" data-act="copy">העתק כתובת</button>
-          <a class="btn secondary" href="${url}" target="_blank" rel="noopener">פתח קובץ גולמי</a>
+          <a class="btn secondary" href="${url}" target="_blank" rel="noopener">הורד קובץ גולמי</a>
         </div>
         <div class="status"></div>
         <div class="table-wrap"></div>`;
-      card.querySelector("h2").textContent = f.name;
-      card.querySelector(".meta").textContent = f.title + " · " + f.desc;
+      card.querySelector(".meta").textContent ="<strong>" + f.title + "</strong> · " + f.desc;
       card.querySelector(".url").textContent = url;
 
       card.addEventListener("click", async (ev) => {
