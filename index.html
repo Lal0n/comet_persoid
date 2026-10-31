@@ -126,8 +126,14 @@
         </div>
         <div class="status"></div>
         <div class="table-wrap"></div>`;
-      card.querySelector(".meta").textContent ="<strong>" + f.title + "</strong> · " + f.desc;
       card.querySelector(".url").textContent = url;
+      const meta = card.querySelector(".meta");
+      const strong = document.createElement("strong");
+      strong.textContent = f.title;
+      meta.appendChild(strong);
+      meta.appendChild(document.createElement("br"));
+      meta.appendChild(document.createTextNode(f.desc));
+      
 
       card.addEventListener("click", async (ev) => {
         const act = ev.target.dataset.act;
