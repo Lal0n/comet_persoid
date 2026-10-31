@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>קבצי נתונים - מטאורים</title>
+<style>
+  :root { --bg:#f7f8fa; --card:#ffffff; --ink:#1d2330; --muted:#5b6375; --line:#dfe3ea; --accent:#2f6fdb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171f; --card:#1d2230; --ink:#e8ebf2; --muted:#9aa3b5; --line:#2e3547; --accent:#7aa7ff; }
+  }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, "Segoe UI", Arial, sans-serif; line-height:1.5; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.5rem; margin: 8px 0 4px; }
+  p.lead { color: var(--muted); margin: 0 0 16px; }
+  .file { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .file h2 { font-size: 1.05rem; margin: 0 0 6px; direction: ltr; text-align: left; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .meta { color: var(--muted); font-size: .9rem; margin-bottom: 8px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  button, a.btn { font: inherit; background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; text-decoration: none; }
+  button.secondary, a.btn.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .url { direction: ltr; text-align: left; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85rem; word-break: break-all; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .status { color: var(--muted); font-size: .9rem; }
+  .error { color: #c0392b; font-size: .9rem; }
+  .table-wrap { overflow-x: auto; margin-top: 8px; border: 1px solid var(--line); border-radius: 6px; display: none; }
+  table { border-collapse: collapse; width: 100%; direction: ltr; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85rem; }
+  th, td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; white-space: nowrap; }
+  th { background: var(--bg); position: sticky; top: 0; }
+  pre { direction: ltr; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; overflow-x: auto; font-size: .85rem; }
+  details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>קבצי הנתונים</h1>
+  <p class="lead">לחצו על "הצג תוכן" כדי לראות את הקובץ בדפדפן. לחצו על "העתק כתובת" והדביקו בתא הראשון ב-Colab.</p>
+
+  <div id="files"></div>
+</main>
+
+<script>
+  // רשימת הקבצים. הנתיבים יחסיים לאתר, כך שהדף עובד בכל כתובת שבה הוא מפורסם.
+  const FILES = [
+    {
+      name: "Geminids_NOA38_with_elapsed.csv",
+      title: "מטאורי הג'מיניידים - תצפית NOA38, ליל 12-13 וליל 13-14 דצמבר 2020",
+      desc: "כל מטאור עם שעה, בהירות וזמן מתחילת התצפית בדקות (elapsed_min)."
+    },
+    {
+      name: "observer_omri_katz_night1213.csv",
+      title: "תצפית חובבים - עומר קץ, ליל 12-13 באוגוסט 2015",
+      desc: "ספירת מטאורים לפי מרווחי זמן. t_eff_min הוא מרווח התצפית בדקות."
+    },
+    {
+      name: "observer_vesna_night1213.csv",
+      title: "תצפית חובבים - ורה סלבקוביץ', ליל 12-13 באוגוסט 2015",
+      desc: "ספירת מטאורים לפי מרווחי זמן. t_eff_min הוא מרווח התצפית בדקות."
+    },
+    {
+      name: "observer_jose_vicente_night1213.csv",
+      title: "תצפית חובבים - חוזה ויסנטה, ליל 12-13 באוגוסט 2015",
+      desc: "ספירת מטאורים לפי מרווחי זמן. t_eff_min הוא מרווח התצפית בדקות."
+    }
+  ];
+
+  const BASE = "https://lal0n.github.io/comet_persoid/";
+  const PREVIEW_ROWS = 200;
+
+  // פירוק CSV פשוט, עם תמיכה בשדות במרכאות
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = "", inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQ) {
+        if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+        else if (c === '"') inQ = false;
+        else field += c;
+      } else if (c === '"') inQ = true;
+      else if (c === ',') { row.push(field); field = ""; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+      else if (c !== '\r') field += c;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows.filter(r => r.length && r.some(x => x.trim() !== ""));
+  }
+
+  function colabSnippet(url) {
+    return [
+      "import urllib.request",
+      "",
+      `url = "${url}"`,
+      'with urllib.request.urlopen(url) as response:',
+      '    text = response.read().decode("utf-8-sig")',
+      "",
+      "lines = text.strip().splitlines()",
+      "print(len(lines), 'שורות')",
+      "print(lines[:3])"
+    ].join("\n");
+  }
+
+  async function copyText(text, btn) {
+    try {
+      await navigator.clipboard.writeText(text);
+      const old = btn.textContent;
+      btn.textContent = "הועתק";
+      setTimeout(() => btn.textContent = old, 1500);
+    } catch (e) {
+      btn.textContent = "לא הצליח להעתיק";
+    }
+  }
+
+  function render() {
+    const root = document.getElementById("files");
+    FILES.forEach((f, idx) => {
+      const url = BASE + f.name;
+      const card = document.createElement("section");
+      card.className = "file";
+      card.innerHTML = `
+        <h2></h2>
+        <div class="meta"></div>
+        <div class="url"></div>
+        <div class="actions">
+          <button data-act="show">הצג תוכן</button>
+          <button class="secondary" data-act="copy">העתק כתובת</button>
+          <a class="btn secondary" href="${url}" target="_blank" rel="noopener">פתח קובץ גולמי</a>
+        </div>
+        <div class="status"></div>
+        <div class="table-wrap"></div>
+        <details>
+          <summary>קוד ל-Colab</summary>
+          <pre></pre>
+          <div class="actions"><button class="secondary" data-act="copycode">העתק קוד</button></div>
+        </details>`;
+      card.querySelector("h2").textContent = f.name;
+      card.querySelector(".meta").textContent = f.title + " · " + f.desc;
+      card.querySelector(".url").textContent = url;
+      card.querySelector("pre").textContent = colabSnippet(url);
+
+      card.addEventListener("click", async (ev) => {
+        const act = ev.target.dataset.act;
+        if (!act) return;
+        if (act === "copy") copyText(url, ev.target);
+        if (act === "copycode") copyText(colabSnippet(url), ev.target);
+        if (act === "show") await showContent(card, url, ev.target);
+      });
+      root.appendChild(card);
+    });
+  }
+
+  async function showContent(card, url, btn) {
+    const status = card.querySelector(".status");
+    const wrap = card.querySelector(".table-wrap");
+    status.className = "status";
+    status.textContent = "טוען...";
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const text = (await res.text()).replace(/^﻿/, "");
+      const rows = parseCSV(text);
+      if (!rows.length) throw new Error("הקובץ ריק");
+      const header = rows[0];
+      const body = rows.slice(1);
+      const shown = body.slice(0, PREVIEW_ROWS);
+      let html = "<table><thead><tr>" + header.map(h => `<th>${escapeHtml(h)}</th>`).join("") + "</tr></thead><tbody>";
+      for (const r of shown) {
+        html += "<tr>" + header.map((_, i) => `<td>${escapeHtml(r[i] ?? "")}</td>`).join("") + "</tr>";
+      }
+      html += "</tbody></table>";
+      wrap.innerHTML = html;
+      wrap.style.display = "block";
+      status.textContent = `${body.length} שורות נתונים, מוצגות ${shown.length}. ${body.length > PREVIEW_ROWS ? "לקובץ המלא לחצו על 'פתח קובץ גולמי'." : ""}`;
+      btn.textContent = "הסתר תוכן";
+      btn.dataset.act = "hide";
+    } catch (e) {
+      status.className = "error";
+      status.textContent = "לא הצלחנו לטעון את הקובץ: " + e.message;
+    }
+    if (btn.dataset.act === "hide") return;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  // כפתור "הסתר תוכן" מחזיר את התצוגה למצב רגיל
+  document.addEventListener("click", (ev) => {
+    if (ev.target.dataset && ev.target.dataset.act === "hide") {
+      const card = ev.target.closest(".file");
+      card.querySelector(".table-wrap").style.display = "none";
+      card.querySelector(".status").textContent = "";
+      ev.target.textContent = "הצג תוכן";
+      ev.target.dataset.act = "show";
+    }
+  });
+
+  render();
+</script>
+</body>
+</html>
