@@ -126,22 +126,15 @@
           <a class="btn secondary" href="${url}" target="_blank" rel="noopener">פתח קובץ גולמי</a>
         </div>
         <div class="status"></div>
-        <div class="table-wrap"></div>
-        <details>
-          <summary>קוד ל-Colab</summary>
-          <pre></pre>
-          <div class="actions"><button class="secondary" data-act="copycode">העתק קוד</button></div>
-        </details>`;
+        <div class="table-wrap"></div>`;
       card.querySelector("h2").textContent = f.name;
       card.querySelector(".meta").textContent = f.title + " · " + f.desc;
       card.querySelector(".url").textContent = url;
-      card.querySelector("pre").textContent = colabSnippet(url);
 
       card.addEventListener("click", async (ev) => {
         const act = ev.target.dataset.act;
         if (!act) return;
         if (act === "copy") copyText(url, ev.target);
-        if (act === "copycode") copyText(colabSnippet(url), ev.target);
         if (act === "show") await showContent(card, url, ev.target);
       });
       root.appendChild(card);
